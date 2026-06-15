@@ -46,4 +46,8 @@ export async function getProductById(id: string): Promise<Product | null> {
     .from("products")
     .select(PRODUCT_DETAIL_SELECT)
     .eq("id", id)
-    .eq("is_activ
+    .eq("is_active", true)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as unknown as Product) ?? null;
+}
