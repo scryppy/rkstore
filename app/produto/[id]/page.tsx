@@ -71,7 +71,7 @@ export default async function ProductPage({
           )}
           <h1 className="text-3xl font-bold">{product.name}</h1>
           {product.description && (
-            <p className="leading-relaxed text-neutral-600">
+            <p className="whitespace-pre-line leading-relaxed text-neutral-600">
               {product.description}
             </p>
           )}
