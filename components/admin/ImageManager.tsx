@@ -84,10 +84,19 @@ export default function ImageManager({
       <form
         action={(fd) => {
           setError(null);
+          const file = fd.get("file") as File | null;
+          if (file && file.size > 10 * 1024 * 1024) {
+            setError("Imagem muito grande (máx. 10MB). Reduza e tente de novo.");
+            return;
+          }
           start(async () => {
-            const r = await uploadProductImage(productId, fd);
-            if (!r.ok) setError(r.error ?? "Erro no upload.");
-            else router.refresh();
+            try {
+              const r = await uploadProductImage(productId, fd);
+              if (!r.ok) setError(r.error ?? "Erro no upload.");
+              else router.refresh();
+            } catch {
+              setError("Falha no envio (arquivo grande demais ou conexão).");
+            }
           });
         }}
         className="flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-neutral-300 p-3"
