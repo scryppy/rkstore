@@ -14,6 +14,33 @@ const STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelado",
 };
 
+type Header = { emoji: string; title: string; sub: string; box: string };
+
+function header(status: string): Header {
+  if (status === "paid" || status === "processing" || status === "shipped" || status === "delivered") {
+    return {
+      emoji: "✓",
+      title: "Pagamento aprovado!",
+      sub: "Recebemos seu pagamento. Já estamos cuidando do seu pedido.",
+      box: "border-green-200 bg-green-50",
+    };
+  }
+  if (status === "cancelled") {
+    return {
+      emoji: "✕",
+      title: "Pagamento não concluído",
+      sub: "O pagamento não foi aprovado. Você pode tentar comprar novamente.",
+      box: "border-red-200 bg-red-50",
+    };
+  }
+  return {
+    emoji: "⏳",
+    title: "Pedido criado!",
+    sub: "Estamos aguardando a confirmação do pagamento. Esta página atualiza o status assim que o Mercado Pago confirmar.",
+    box: "border-amber-200 bg-amber-50",
+  };
+}
+
 export default async function OrderPage({
   params,
 }: {
@@ -32,6 +59,8 @@ export default async function OrderPage({
 
   if (!order) notFound();
 
+  const h = header(order.status);
+
   const items =
     (order.order_items as {
       id: string;
@@ -44,11 +73,12 @@ export default async function OrderPage({
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div className="space-y-2 rounded-2xl border border-green-200 bg-green-50 p-6 text-center">
-        <div className="text-4xl">✓</div>
-        <h1 className="text-2xl font-bold">Pedido confirmado!</h1>
-        <p className="text-neutral-600">
-          Obrigado pela compra. Pedido nº{" "}
+      <div className={`space-y-2 rounded-2xl border p-6 text-center ${h.box}`}>
+        <div className="text-4xl">{h.emoji}</div>
+        <h1 className="text-2xl font-bold">{h.title}</h1>
+        <p className="text-neutral-600">{h.sub}</p>
+        <p className="text-sm text-neutral-500">
+          Pedido nº{" "}
           <span className="font-mono font-semibold">
             {order.id.slice(0, 8).toUpperCase()}
           </span>
@@ -61,10 +91,6 @@ export default async function OrderPage({
           <span className="font-semibold">
             {STATUS_LABEL[order.status] ?? order.status}
           </span>
-        </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-neutral-500">Pagamento</span>
-          <span className="font-semibold uppercase">{order.payment_method}</span>
         </div>
 
         <ul className="space-y-2 border-t border-neutral-200 pt-4 text-sm">
@@ -84,6 +110,12 @@ export default async function OrderPage({
           <span>{formatBRL(order.total)}</span>
         </div>
       </div>
+
+      {order.status === "pending" && (
+        <p className="text-center text-sm text-neutral-500">
+          Já pagou? A confirmação pode levar alguns instantes. Atualize a página.
+        </p>
+      )}
 
       <Link
         href="/"

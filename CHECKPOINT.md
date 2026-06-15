@@ -72,8 +72,16 @@ NEXT_PUBLIC vars são "congeladas" no build — ao alterar, precisa REDEPLOY com
 1. **Cadastrar produtos** (catálogo está vazio). Opções: criar painel admin (próxima fase), inserir via SQL/Supabase Studio, ou pedir reseed de exemplos pro Claude.
 2. **Painel admin** (/admin): login Supabase Auth, CRUD de produtos, upload de fotos pro bucket product-images, gestão de pedidos. (Estava no plano original em RKSTORE_PROGRESS.md.)
 3. **Imagens**: configurar upload real; remotePatterns já liberou supabase storage + picsum em next.config.ts.
-4. **Pagamento real** (hoje só registra método: pix/cartão/boleto). Integrar gateway (ex: Mercado Pago) depois.
+4. ~~Pagamento real~~ FEITO: Mercado Pago Checkout Pro (redirect) + webhook. Ver seção abaixo.
 5. **Frete** (hoje "a calcular").
+
+## Pagamento — Mercado Pago (Checkout Pro) — NOVO
+- **Fluxo:** checkout cria pedido (status pending) + preferência MP (REST, sem SDK) e redireciona o cliente pro `init_point`. Cliente paga no ambiente do MP e volta pra /pedido/[id].
+- **Confirmação:** webhook `app/api/webhooks/mercadopago` (POST/GET) re-consulta o pagamento na API do MP (não confia no corpo), mapeia status e atualiza o pedido (approved->paid, rejected/cancelled->cancelled, pending->pending). Guarda payment_id.
+- **Arquivos:** lib/mercadopago.ts (createPreference/getPayment/mapPaymentStatus), lib/actions.ts (createOrderAndCheckout + insertOrder helper; createOrder mantido), app/checkout (redireciona), app/pedido/[id] (status real), app/api/webhooks/mercadopago.
+- **Env novas (Vercel + .env.local):** `MP_ACCESS_TOKEN` (access token MP; produção pra cobrar de verdade, teste pra simular) e `NEXT_PUBLIC_SITE_URL` (usada em back_urls/notification_url; sem barra no fim).
+- **Webhook só dispara em produção** (precisa URL pública https). Local não confirma automático.
+- back_urls success/pending/failure -> /pedido/[id]; auto_return=approved.
 
 ## Pitfalls conhecidos (IMPORTANTE pra próximo chat)
 - **Mount OneDrive corrompe arquivos** ao escrever via ferramentas Write/Edit: injeta byte nulo (\0) OU trunca o arquivo no meio. Isso quebra o build Turbopack ("Unexpected character '\0'" / "Unterminated string constant"). SEMPRE escrever via bash heredoc e verificar com: `tr -cd '\000' < f | wc -c` (deve ser 0) e conferir `tail` do arquivo. NÃO confiar em `grep -P '\x00'` (falso negativo).

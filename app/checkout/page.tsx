@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useCart } from "@/components/CartProvider";
 import { formatBRL } from "@/lib/format";
-import { createOrder } from "@/lib/actions";
+import { createOrderAndCheckout } from "@/lib/actions";
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -23,7 +23,7 @@ export default function CheckoutPage() {
     neighborhood: "",
     city: "",
     state: "",
-    payment_method: "pix",
+    payment_method: "mercadopago",
     notes: "",
   });
 
@@ -35,7 +35,7 @@ export default function CheckoutPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const res = await createOrder({
+    const res = await createOrderAndCheckout({
       name: form.name,
       email: form.email,
       phone: form.phone,
@@ -52,11 +52,12 @@ export default function CheckoutPage() {
       },
       items,
     });
-    setLoading(false);
     if (res.ok) {
       clear();
-      router.push(`/pedido/${res.orderId}`);
+      // redireciona para o ambiente seguro do Mercado Pago
+      window.location.href = res.initPoint;
     } else {
+      setLoading(false);
       setError(res.error);
     }
   }
@@ -169,32 +170,10 @@ export default function CheckoutPage() {
 
           <fieldset className="space-y-4 rounded-2xl border border-neutral-200 bg-white p-6">
             <legend className="px-2 font-semibold">Pagamento</legend>
-            <div className="flex flex-wrap gap-3">
-              {[
-                { v: "pix", l: "Pix" },
-                { v: "credit_card", l: "Cartão de crédito" },
-                { v: "boleto", l: "Boleto" },
-              ].map((p) => (
-                <label
-                  key={p.v}
-                  className={[
-                    "cursor-pointer rounded-full border px-4 py-2 text-sm font-medium",
-                    form.payment_method === p.v
-                      ? "border-black bg-black text-white"
-                      : "border-neutral-300",
-                  ].join(" ")}
-                >
-                  <input
-                    type="radio"
-                    name="payment"
-                    className="hidden"
-                    checked={form.payment_method === p.v}
-                    onChange={() => set("payment_method", p.v)}
-                  />
-                  {p.l}
-                </label>
-              ))}
-            </div>
+            <p className="text-sm text-neutral-600">
+              Você escolhe a forma de pagamento (Pix, cartão ou boleto) na
+              próxima etapa, no ambiente seguro do Mercado Pago.
+            </p>
             <textarea
               placeholder="Observações (opcional)"
               className={input}
@@ -233,7 +212,7 @@ export default function CheckoutPage() {
             disabled={loading}
             className="block w-full rounded-full bg-black px-6 py-3 text-center font-semibold text-white transition hover:bg-neutral-800 disabled:opacity-50"
           >
-            {loading ? "Processando…" : "Confirmar pedido"}
+            {loading ? "Processando…" : "Ir para o pagamento"}
           </button>
         </aside>
       </form>
