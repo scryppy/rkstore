@@ -47,8 +47,8 @@ async function handle(req: NextRequest) {
     }
 
     const newStatus = mapPaymentStatus(payment.status);
+    const supabase = getSupabaseAdmin();
     if (newStatus) {
-      const supabase = getSupabaseAdmin();
       await supabase
         .from("orders")
         .update({
@@ -56,6 +56,19 @@ async function handle(req: NextRequest) {
           payment_id: String(payment.id),
           updated_at: new Date().toISOString(),
         })
+        .eq("id", payment.external_reference);
+
+      // Pagamento aprovado: baixa o estoque (idempotente no banco).
+      if (newStatus === "paid") {
+        await supabase.rpc("apply_order_stock", {
+          p_order: payment.external_reference,
+        });
+      }
+    } else {
+      // registra o id do pagamento mesmo sem mudar status
+      await supabase
+        .from("orders")
+        .update({ payment_id: String(payment.id) })
         .eq("id", payment.external_reference);
     }
 

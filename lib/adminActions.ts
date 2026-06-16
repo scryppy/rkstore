@@ -201,6 +201,43 @@ export async function addVariant(
   }
 }
 
+export async function addVariantsBatch(
+  productId: string,
+  formData: FormData
+): Promise<Result> {
+  try {
+    const color = String(formData.get("color") ?? "").trim();
+    const sizesRaw = String(formData.get("sizes") ?? "").trim();
+    const stock = Number(formData.get("stock") ?? 0);
+    if (!color || !sizesRaw)
+      return { ok: false, error: "Informe a cor e ao menos um tamanho." };
+    const sizes = Array.from(
+      new Set(
+        sizesRaw
+          .split(/[,;\s]+/)
+          .map((x) => x.trim())
+          .filter(Boolean)
+      )
+    );
+    if (sizes.length === 0)
+      return { ok: false, error: "Informe ao menos um tamanho." };
+    const supabase = getSupabaseAdmin();
+    const rows = sizes.map((size) => ({
+      product_id: productId,
+      size,
+      color,
+      stock: Number.isFinite(stock) ? stock : 0,
+      sku: null,
+    }));
+    const { error } = await supabase.from("product_variants").insert(rows);
+    if (error) throw error;
+    revalidatePath(`/admin/produtos/${productId}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errMsg(e) };
+  }
+}
+
 export async function updateVariantStock(
   variantId: string,
   productId: string,
@@ -255,40 +292,76 @@ export async function uploadProductImage(
   formData: FormData
 ): Promise<Result> {
   try {
-    const file = formData.get("file") as File | null;
-    if (!file || file.size === 0)
-      return { ok: false, error: "Selecione uma imagem." };
+    const files = formData
+      .getAll("file")
+      .filter((f): f is File => f instanceof File && f.size > 0);
+    if (files.length === 0)
+      return { ok: false, error: "Selecione ao menos uma imagem." };
     const supabase = getSupabaseAdmin();
 
-    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-    const path = `${productId}/${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 8)}.${ext}`;
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const { error: upErr } = await supabase.storage
-      .from(BUCKET)
-      .upload(path, bytes, {
-        contentType: file.type || "image/jpeg",
-        upsert: false,
-      });
-    if (upErr) throw upErr;
-
-    const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
-
-    // primeira imagem vira capa
     const { count } = await supabase
       .from("product_images")
       .select("id", { count: "exact", head: true })
       .eq("product_id", productId);
-    const isFirst = (count ?? 0) === 0;
+    let position = count ?? 0;
 
-    const { error } = await supabase.from("product_images").insert({
-      product_id: productId,
-      url: pub.publicUrl,
-      position: count ?? 0,
-      is_cover: isFirst,
-    });
-    if (error) throw error;
+    for (const file of files) {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `${productId}/${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}.${ext}`;
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const { error: upErr } = await supabase.storage
+        .from(BUCKET)
+        .upload(path, bytes, {
+          contentType: file.type || "image/jpeg",
+          upsert: false,
+        });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(path);
+      const { error } = await supabase.from("product_images").insert({
+        product_id: productId,
+        url: pub.publicUrl,
+        position,
+        is_cover: position === 0,
+      });
+      if (error) throw error;
+      position++;
+    }
+
+    revalidatePath(`/admin/produtos/${productId}`);
+    revalidatePath("/");
+    revalidatePath(`/produto/${productId}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errMsg(e) };
+  }
+}
+
+export async function reorderImage(
+  productId: string,
+  imageId: string,
+  direction: "left" | "right"
+): Promise<Result> {
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data: imgs } = await supabase
+      .from("product_images")
+      .select("id, position")
+      .eq("product_id", productId)
+      .order("position");
+    const order = (imgs ?? []).map((i) => i.id as string);
+    const idx = order.indexOf(imageId);
+    if (idx === -1) return { ok: false, error: "Imagem não encontrada." };
+    const swap = direction === "left" ? idx - 1 : idx + 1;
+    if (swap < 0 || swap >= order.length) return { ok: true };
+    [order[idx], order[swap]] = [order[swap], order[idx]];
+    for (let p = 0; p < order.length; p++) {
+      await supabase
+        .from("product_images")
+        .update({ position: p })
+        .eq("id", order[p]);
+    }
     revalidatePath(`/admin/produtos/${productId}`);
     revalidatePath("/");
     revalidatePath(`/produto/${productId}`);
@@ -374,6 +447,29 @@ const ORDER_STATUSES = [
   "delivered",
   "cancelled",
 ] as const;
+
+export async function updateOrderTracking(
+  orderId: string,
+  formData: FormData
+): Promise<Result> {
+  try {
+    const code = String(formData.get("tracking_code") ?? "").trim() || null;
+    const markShipped = formData.get("mark_shipped") === "on";
+    const supabase = getSupabaseAdmin();
+    const patch: Record<string, unknown> = {
+      tracking_code: code,
+      updated_at: new Date().toISOString(),
+    };
+    if (markShipped) patch.status = "shipped";
+    const { error } = await supabase.from("orders").update(patch).eq("id", orderId);
+    if (error) throw error;
+    revalidatePath("/admin/pedidos");
+    revalidatePath(`/admin/pedidos/${orderId}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errMsg(e) };
+  }
+}
 
 export async function updateOrderStatus(
   orderId: string,

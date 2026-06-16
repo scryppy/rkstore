@@ -27,6 +27,25 @@ async function insertOrder(input: CheckoutInput): Promise<string> {
   const supabase = getSupabaseAdmin();
   const total = input.items.reduce((s, i) => s + i.price * i.quantity, 0);
 
+  // 0. Valida estoque atual de cada variante (evita vender mais do que tem)
+  const variantIds = input.items.map((i) => i.variantId);
+  const { data: stockRows, error: stockErr } = await supabase
+    .from("product_variants")
+    .select("id, stock")
+    .in("id", variantIds);
+  if (stockErr) throw stockErr;
+  const stockById = new Map(
+    (stockRows ?? []).map((v) => [v.id as string, v.stock as number])
+  );
+  for (const item of input.items) {
+    const available = stockById.get(item.variantId) ?? 0;
+    if (item.quantity > available) {
+      throw new Error(
+        `Estoque insuficiente para "${item.productName}" (${item.variantInfo}). Disponível: ${available}.`
+      );
+    }
+  }
+
   // 1. Cliente (reaproveita por e-mail)
   const { data: existing } = await supabase
     .from("customers")

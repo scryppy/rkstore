@@ -63,6 +63,7 @@ export type AdminOrderDetail = {
   total: number;
   payment_method: string | null;
   notes: string | null;
+  tracking_code: string | null;
   created_at: string;
   customers: { name: string; email: string; phone: string | null } | null;
   customer_addresses: {
@@ -89,7 +90,7 @@ export async function adminGetOrder(id: string): Promise<AdminOrderDetail | null
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, status, total, payment_method, notes, created_at, customers(name, email, phone), customer_addresses!orders_shipping_address_id_fkey(street, number, complement, neighborhood, city, state, zip_code), order_items(id, product_name, variant_info, unit_price, quantity, subtotal)"
+      "id, status, total, payment_method, notes, tracking_code, created_at, customers(name, email, phone), customer_addresses!orders_shipping_address_id_fkey(street, number, complement, neighborhood, city, state, zip_code), order_items(id, product_name, variant_info, unit_price, quantity, subtotal)"
     )
     .eq("id", id)
     .maybeSingle();

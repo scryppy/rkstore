@@ -83,6 +83,11 @@ NEXT_PUBLIC vars são "congeladas" no build — ao alterar, precisa REDEPLOY com
 - **Webhook só dispara em produção** (precisa URL pública https). Local não confirma automático.
 - back_urls success/pending/failure -> /pedido/[id]; auto_return=approved.
 
+## Melhorias (admin + estoque + pedidos) — NOVO
+- **Baixa de estoque na venda:** migration add_stock_control_and_tracking (colunas orders.stock_applied bool, orders.tracking_code text; função apply_order_stock(p_order) idempotente). Webhook chama rpc apply_order_stock quando paga. insertOrder valida estoque antes de criar pedido/preferência (não vende mais do que tem).
+- **Admin mais ágil:** ImageManager faz upload de várias fotos de uma vez + reordenar (← →) + definir capa; VariantManager adiciona em lote (cor + tamanhos separados por vírgula + estoque). Actions novas: reorderImage, addVariantsBatch.
+- **Gestão de pedidos:** lista com filtro por status (chips) + busca por nome/e-mail; detalhe com campo de código de rastreio (action updateOrderTracking, opção marcar como Enviado) e botão "Avisar cliente no WhatsApp" (link wa.me pronto, sem API).
+
 ## Pitfalls conhecidos (IMPORTANTE pra próximo chat)
 - **Mount OneDrive corrompe arquivos** ao escrever via ferramentas Write/Edit: injeta byte nulo (\0) OU trunca o arquivo no meio. Isso quebra o build Turbopack ("Unexpected character '\0'" / "Unterminated string constant"). SEMPRE escrever via bash heredoc e verificar com: `tr -cd '\000' < f | wc -c` (deve ser 0) e conferir `tail` do arquivo. NÃO confiar em `grep -P '\x00'` (falso negativo).
 - `npm install` trava no mount OneDrive (rename ENOTEMPTY) — instalar/buildar fora do mount se precisar testar local.

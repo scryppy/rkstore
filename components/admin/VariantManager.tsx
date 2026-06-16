@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  addVariant,
+  addVariantsBatch,
   deleteVariant,
   updateVariantStock,
 } from "@/lib/adminActions";
@@ -29,7 +29,6 @@ export default function VariantManager({
               <tr className="border-b border-neutral-200">
                 <th className="py-2 pr-4">Tam.</th>
                 <th className="py-2 pr-4">Cor</th>
-                <th className="py-2 pr-4">SKU</th>
                 <th className="py-2 pr-4">Estoque</th>
                 <th className="py-2"></th>
               </tr>
@@ -39,7 +38,6 @@ export default function VariantManager({
                 <tr key={v.id} className="border-b border-neutral-100">
                   <td className="py-2 pr-4">{v.size}</td>
                   <td className="py-2 pr-4">{v.color}</td>
-                  <td className="py-2 pr-4 text-neutral-500">{v.sku ?? "—"}</td>
                   <td className="py-2 pr-4">
                     <input
                       type="number"
@@ -83,17 +81,51 @@ export default function VariantManager({
         action={(fd) => {
           setError(null);
           start(async () => {
-            const r = await addVariant(productId, fd);
+            const r = await addVariantsBatch(productId, fd);
             if (!r.ok) setError(r.error ?? "Erro.");
-            else router.refresh();
+            else {
+              (document.getElementById("variant-form") as HTMLFormElement)?.reset();
+              router.refresh();
+            }
           });
         }}
-        className="flex flex-wrap items-end gap-2 rounded-xl border border-dashed border-neutral-300 p-3"
+        id="variant-form"
+        className="flex flex-wrap items-end gap-3 rounded-xl border border-dashed border-neutral-300 p-3"
       >
-        <Field name="size" label="Tamanho" placeholder="P / M / G" required />
-        <Field name="color" label="Cor" placeholder="Preto" required />
-        <Field name="sku" label="SKU (opc.)" placeholder="" />
-        <Field name="stock" label="Estoque" type="number" defaultValue="0" />
+        <div>
+          <label className="block text-xs font-medium text-neutral-500">
+            Cor
+          </label>
+          <input
+            name="color"
+            required
+            placeholder="Preto"
+            className="mt-1 w-32 rounded-lg border border-neutral-300 px-2 py-1.5 text-sm outline-none focus:border-black"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-neutral-500">
+            Tamanhos (separe por vírgula)
+          </label>
+          <input
+            name="sizes"
+            required
+            placeholder="P, M, G, GG"
+            className="mt-1 w-48 rounded-lg border border-neutral-300 px-2 py-1.5 text-sm outline-none focus:border-black"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-neutral-500">
+            Estoque (cada)
+          </label>
+          <input
+            name="stock"
+            type="number"
+            min="0"
+            defaultValue="0"
+            className="mt-1 w-24 rounded-lg border border-neutral-300 px-2 py-1.5 text-sm outline-none focus:border-black"
+          />
+        </div>
         <button
           type="submit"
           disabled={pending}
@@ -101,41 +133,12 @@ export default function VariantManager({
         >
           Adicionar
         </button>
+        <span className="w-full text-xs text-neutral-500">
+          Ex.: cor “Preto” + tamanhos “P, M, G” cria 3 variantes de uma vez. O
+          estoque de cada uma pode ser ajustado depois na tabela acima.
+        </span>
       </form>
       {error && <p className="text-sm text-red-600">{error}</p>}
-    </div>
-  );
-}
-
-function Field({
-  name,
-  label,
-  placeholder,
-  type = "text",
-  required,
-  defaultValue,
-}: {
-  name: string;
-  label: string;
-  placeholder?: string;
-  type?: string;
-  required?: boolean;
-  defaultValue?: string;
-}) {
-  return (
-    <div>
-      <label className="block text-xs font-medium text-neutral-500">
-        {label}
-      </label>
-      <input
-        name={name}
-        type={type}
-        min={type === "number" ? "0" : undefined}
-        placeholder={placeholder}
-        required={required}
-        defaultValue={defaultValue}
-        className="mt-1 w-28 rounded-lg border border-neutral-300 px-2 py-1.5 text-sm outline-none focus:border-black"
-      />
     </div>
   );
 }

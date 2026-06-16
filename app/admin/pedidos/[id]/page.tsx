@@ -4,6 +4,8 @@ import { adminGetOrder } from "@/lib/adminQueries";
 import { formatBRL } from "@/lib/format";
 import { StatusBadge } from "@/components/admin/status";
 import OrderStatusForm from "@/components/admin/OrderStatusForm";
+import TrackingForm from "@/components/admin/TrackingForm";
+import WhatsAppButton from "@/components/admin/WhatsAppButton";
 
 export const revalidate = 0;
 
@@ -26,9 +28,7 @@ export default async function PedidoDetalhe({
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-bold">
-            Pedido #{order.id.slice(0, 8)}
-          </h1>
+          <h1 className="text-lg font-bold">Pedido #{order.id.slice(0, 8)}</h1>
           <p className="text-sm text-neutral-500">
             {new Date(order.created_at).toLocaleString("pt-BR")} ·{" "}
             <StatusBadge status={order.status} />
@@ -45,6 +45,15 @@ export default async function PedidoDetalhe({
           <p className="text-sm text-neutral-500">
             {order.customers?.phone ?? "—"}
           </p>
+          <div className="mt-3">
+            <WhatsAppButton
+              phone={order.customers?.phone ?? null}
+              customerName={order.customers?.name ?? null}
+              orderId={order.id}
+              status={order.status}
+              trackingCode={order.tracking_code}
+            />
+          </div>
         </div>
         <div className="rounded-xl border border-neutral-200 p-4">
           <h2 className="mb-2 font-semibold">Entrega</h2>
@@ -67,6 +76,15 @@ export default async function PedidoDetalhe({
             {order.payment_method ?? "—"}
           </p>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-neutral-200 p-4">
+        <h2 className="mb-3 font-semibold">Envio</h2>
+        <TrackingForm
+          orderId={order.id}
+          trackingCode={order.tracking_code}
+          status={order.status}
+        />
       </div>
 
       <div className="rounded-xl border border-neutral-200 p-4">
