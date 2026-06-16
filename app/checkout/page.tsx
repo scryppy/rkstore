@@ -13,6 +13,7 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cepStatus, setCepStatus] = useState<string | null>(null);
+  const [redirecting, setRedirecting] = useState(false);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -85,6 +86,7 @@ export default function CheckoutPage() {
       items,
     });
     if (res.ok) {
+      setRedirecting(true);
       clear();
       // redireciona para o ambiente seguro do Mercado Pago
       window.location.href = res.initPoint;
@@ -92,6 +94,17 @@ export default function CheckoutPage() {
       setLoading(false);
       setError(res.error);
     }
+  }
+
+  if (redirecting) {
+    return (
+      <div className="space-y-3 py-16 text-center">
+        <h1 className="text-2xl font-bold">Redirecionando para o pagamento…</h1>
+        <p className="text-neutral-500">
+          Você será levado ao ambiente seguro do Mercado Pago.
+        </p>
+      </div>
+    );
   }
 
   if (ready && items.length === 0) {
