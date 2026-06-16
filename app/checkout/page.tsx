@@ -12,6 +12,7 @@ export default function CheckoutPage() {
   const { items, total, clear, ready } = useCart();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cepStatus, setCepStatus] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -29,6 +30,37 @@ export default function CheckoutPage() {
 
   function set(field: string, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function buscarCep(cep: string) {
+    setCepStatus("Buscando endereço…");
+    try {
+      const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const d = await r.json();
+      if (d.erro) {
+        setCepStatus("CEP não encontrado.");
+        return;
+      }
+      setForm((f) => ({
+        ...f,
+        street: d.logradouro || f.street,
+        neighborhood: d.bairro || f.neighborhood,
+        city: d.localidade || f.city,
+        state: d.uf || f.state,
+      }));
+      setCepStatus(null);
+    } catch {
+      setCepStatus("Não foi possível buscar o CEP agora.");
+    }
+  }
+
+  function onCepChange(value: string) {
+    const digits = value.replace(/\D/g, "").slice(0, 8);
+    const masked =
+      digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits;
+    set("zip_code", masked);
+    if (cepStatus) setCepStatus(null);
+    if (digits.length === 8) buscarCep(digits);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -118,13 +150,20 @@ export default function CheckoutPage() {
           <fieldset className="space-y-4 rounded-2xl border border-neutral-200 bg-white p-6">
             <legend className="px-2 font-semibold">Endereço de entrega</legend>
             <div className="grid gap-4 sm:grid-cols-2">
-              <input
-                required
-                placeholder="CEP"
-                className={input}
-                value={form.zip_code}
-                onChange={(e) => set("zip_code", e.target.value)}
-              />
+              <div className="space-y-1">
+                <input
+                  required
+                  inputMode="numeric"
+                  placeholder="CEP"
+                  maxLength={9}
+                  className={input}
+                  value={form.zip_code}
+                  onChange={(e) => onCepChange(e.target.value)}
+                />
+                {cepStatus && (
+                  <span className="text-xs text-neutral-500">{cepStatus}</span>
+                )}
+              </div>
               <input
                 required
                 placeholder="Rua"
